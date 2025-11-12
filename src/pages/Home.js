@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import HeroSection from '../components/landing/HeroSection';
 import FeaturesSection from '../components/landing/FeaturesSection';
-import StatsSection from '../components/landing/StatsSection';
 import TestimonialsSection from '../components/landing/TestimonialsSection';
 import { publicAPI } from '../services/api';
 import Card from '../components/common/Card';
@@ -48,7 +47,6 @@ const Home = () => {
   return (
     <div className="home-page">
       <HeroSection />
-      <StatsSection />
       <FeaturesSection />
       
       {/* Featured Institutions Section */}
