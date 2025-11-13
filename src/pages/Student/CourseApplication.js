@@ -723,5 +723,5 @@ const CourseApplication = () => {
   );
 };
 
-export default CourseApplication;*
+export default CourseApplication;*/
 
