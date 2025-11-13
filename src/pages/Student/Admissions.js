@@ -1,4 +1,3 @@
-
 admission under pagesimport React, { useState, useEffect } from 'react';
 import { studentAPI } from '../../services/api';
 import Card from '../../components/common/Card';
