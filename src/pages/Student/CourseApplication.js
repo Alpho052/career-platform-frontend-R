@@ -42,7 +42,7 @@ const CourseApplication = () => {
     const fetchCourses = async () => {
       if (selectedInstitution) {
         try {
-          // Call backend which already filters qualified courses
+          // Backend already filters qualified courses
           const response = await publicAPI.getInstitutionCourses(selectedInstitution);
           setCourses(response.data || []);
         } catch (error) {
@@ -76,16 +76,23 @@ const CourseApplication = () => {
     setMessage('');
 
     try {
-      await studentAPI.applyForCourses([
-        { institutionId: selectedInstitution, courseId }
-      ]);
+      // Backend expects { institutionId, courseIds: [ ... ] }
+      const payload = { 
+        institutionId: selectedInstitution, 
+        courseIds: [courseId] 
+      };
 
-      setMessage('Application submitted successfully!');
-      
+      const response = await studentAPI.applyForCourses(payload);
+
+      setMessage(response.data?.message || 'Application submitted successfully!');
+
+      // Refresh applications
       const applicationsData = await studentAPI.getApplications();
       setApplications(applicationsData.applications || []);
     } catch (error) {
-      setMessage('Error submitting application: ' + error.message);
+      console.error('Error applying for course:', error);
+      const msg = error.response?.data?.error || error.message || 'Something went wrong';
+      setMessage('Error submitting application: ' + msg);
     } finally {
       setSubmitting(false);
     }
@@ -139,36 +146,39 @@ const CourseApplication = () => {
 
                 {courses.length > 0 ? (
                   <div className="courses-grid">
-                    {courses.map(course => (
-                      <Card key={course.id} className="course-card">
-                        <h4>{course.name}</h4>
-                        <p className="course-faculty">{course.faculty}</p>
-                        <p className="course-description">
-                          {course.description || 'No description available'}
-                        </p>
-                        {course.requirements && (
-                          <div className="course-reqs">
-                            {course.requirements.minGPA && (
-                              <div className="badge">Min GPA: {course.requirements.minGPA}</div>
-                            )}
-                            {Array.isArray(course.requirements.requiredSubjects) && course.requirements.requiredSubjects.length > 0 && (
-                              <div className="badge">Required: {course.requirements.requiredSubjects.join(', ')}</div>
-                            )}
-                          </div>
-                        )}
-                        <button
-                          className="btn btn-primary btn-small"
-                          onClick={() => handleApplication(course.id)}
-                          disabled={
-                            submitting || 
-                            !canApplyToInstitution(selectedInstitution) ||
-                            applications.some(app => app.institutionId === selectedInstitution && app.courseId === course.id)
-                          }
-                        >
-                          {applications.some(app => app.institutionId === selectedInstitution && app.courseId === course.id) ? 'Applied' : 'Apply Now'}
-                        </button>
-                      </Card>
-                    ))}
+                    {courses.map(course => {
+                      const alreadyApplied = applications.some(
+                        app => app.institutionId === selectedInstitution && app.courseId === course.id
+                      );
+                      const maxReached = !canApplyToInstitution(selectedInstitution);
+
+                      return (
+                        <Card key={course.id} className="course-card">
+                          <h4>{course.name}</h4>
+                          <p className="course-faculty">{course.faculty}</p>
+                          <p className="course-description">
+                            {course.description || 'No description available'}
+                          </p>
+                          {course.requirements && (
+                            <div className="course-reqs">
+                              {course.requirements.minGPA && (
+                                <div className="badge">Min GPA: {course.requirements.minGPA}</div>
+                              )}
+                              {Array.isArray(course.requirements.requiredSubjects) && course.requirements.requiredSubjects.length > 0 && (
+                                <div className="badge">Required: {course.requirements.requiredSubjects.join(', ')}</div>
+                              )}
+                            </div>
+                          )}
+                          <button
+                            className="btn btn-primary btn-small"
+                            onClick={() => handleApplication(course.id)}
+                            disabled={submitting || alreadyApplied || maxReached}
+                          >
+                            {alreadyApplied ? 'Applied' : 'Apply Now'}
+                          </button>
+                        </Card>
+                      );
+                    })}
                   </div>
                 ) : (
                   <p>No courses available for this institution.</p>
@@ -207,6 +217,7 @@ const CourseApplication = () => {
 };
 
 export default CourseApplication;
+
 /*import React, { useState, useEffect } from 'react';
 import { studentAPI, publicAPI } from '../../services/api';
 import { formatFirebaseDate } from '../../utils/dateHelper';
