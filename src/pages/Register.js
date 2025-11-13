@@ -380,9 +380,8 @@ const Register = () => {
   );
 };
 
-export default Register;*/
-
-updated register.js ka hara frontend pages import React, { useState } from 'react';
+export default Regist*/
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
