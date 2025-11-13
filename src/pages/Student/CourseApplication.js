@@ -257,7 +257,7 @@ const CourseApplication = () => {
   );
 };
 
-export default CourseApplication;*//*import React, { useState, useEffect } from 'react';
+export default CourseApplication;/*import React, { useState, useEffect } from 'react';
 import { studentAPI, publicAPI } from '../../services/api';
 import { formatFirebaseDate } from '../../utils/dateHelper';
 import Card from '../../components/common/Card';
