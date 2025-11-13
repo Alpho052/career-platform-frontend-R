@@ -381,7 +381,8 @@ const Register = () => {
 };
 
 export default Register;*/
-import React, { useState } from 'react';
+
+updated register.js ka hara frontend pages import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
@@ -400,10 +401,9 @@ const Register = () => {
   const [verificationStep, setVerificationStep] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
 
-  const { register, verifyEmail, login } = useAuth();
+  const { register, verifyEmail } = useAuth();
   const navigate = useNavigate();
 
-  // Helper: navigate to dashboard by role
   const navigateByRole = (role) => {
     switch (role) {
       case 'student':
@@ -433,7 +433,6 @@ const Register = () => {
     setError('');
 
     try {
-      // Prepare additional data by role
       const additionalData = {};
       if (formData.role === 'student') {
         additionalData.phone = formData.phone;
@@ -454,8 +453,8 @@ const Register = () => {
         additionalData,
       });
 
-      // Development: skip verification
-      if (process.env.NODE_ENV === 'development' || result.user.isVerified) {
+      // Check if user is verified
+      if (result.user.isVerified) {
         navigateByRole(result.user.role);
       } else {
         setVerificationStep(true);
@@ -474,39 +473,10 @@ const Register = () => {
     setError('');
 
     try {
-      const result = await verifyEmail(formData.email, verificationCode);
-      navigateByRole(result.user?.role || formData.role);
+      await verifyEmail(formData.email, verificationCode);
+      navigateByRole(formData.role);
     } catch (err) {
       const msg = err?.response?.data?.error || err.message || 'Verification failed';
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Development bypass: auto verify + login
-  const handleDevBypass = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      // Call dev verify endpoint
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/auth/dev-verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.email }),
-      });
-      const data = await res.json();
-
-      if (!data.success) throw new Error(data.error);
-
-      // Login after dev verify
-      const loginResult = await login({
-        email: formData.email,
-        password: formData.password,
-      });
-      navigateByRole(loginResult.user?.role || formData.role);
-    } catch (err) {
-      const msg = err?.message || 'Development verification failed';
       setError(msg);
     } finally {
       setLoading(false);
@@ -521,9 +491,6 @@ const Register = () => {
           <div className="auth-container">
             <Card title="Verify Your Email" className="auth-card">
               <p>Please check your email for the verification code.</p>
-              <div className="verification-help">
-                <p><strong>Development Note:</strong> In development, emails are not sent. Use server console code.</p>
-              </div>
 
               <form onSubmit={handleVerification} className="auth-form">
                 <div className="form-group">
@@ -535,18 +502,13 @@ const Register = () => {
                     onChange={(e) => setVerificationCode(e.target.value)}
                     className="form-control"
                     required
-                    placeholder="Enter verification code from console"
+                    placeholder="Enter verification code"
                   />
                 </div>
 
-                <div className="verification-actions">
-                  <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-                    {loading ? 'Verifying...' : 'Verify Email'}
-                  </button>
-                  <button type="button" className="btn btn-outline btn-full" onClick={handleDevBypass} disabled={loading}>
-                    {loading ? 'Processing...' : 'Development Bypass'}
-                  </button>
-                </div>
+                <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+                  {loading ? 'Verifying...' : 'Verify Email'}
+                </button>
               </form>
 
               {error && <div className="alert alert-error">{error}</div>}
