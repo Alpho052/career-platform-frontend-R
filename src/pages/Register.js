@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+/*import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/common/Card';
@@ -372,6 +372,265 @@ const Register = () => {
                 <p>In development, accounts are auto-verified and can login immediately.</p>
                 <p>Check server console for verification codes if needed.</p>
               </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Register;*/
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import Card from '../components/common/Card';
+
+const Register = () => {
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    name: '',
+    role: 'student',
+    phone: '',
+    address: '',
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [verificationStep, setVerificationStep] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+
+  const { register, verifyEmail, login } = useAuth();
+  const navigate = useNavigate();
+
+  // Helper: navigate to dashboard by role
+  const navigateByRole = (role) => {
+    switch (role) {
+      case 'student':
+        navigate('/student/dashboard');
+        break;
+      case 'institution':
+        navigate('/institution/dashboard');
+        break;
+      case 'company':
+        navigate('/company/dashboard');
+        break;
+      case 'admin':
+        navigate('/admin/dashboard');
+        break;
+      default:
+        navigate('/');
+    }
+  };
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      // Prepare additional data by role
+      const additionalData = {};
+      if (formData.role === 'student') {
+        additionalData.phone = formData.phone;
+        additionalData.address = formData.address;
+      } else if (formData.role === 'institution') {
+        additionalData.location = formData.address;
+        additionalData.type = 'university';
+      } else if (formData.role === 'company') {
+        additionalData.industry = formData.phone;
+        additionalData.location = formData.address;
+      }
+
+      const result = await register({
+        email: formData.email,
+        password: formData.password,
+        name: formData.name,
+        role: formData.role,
+        additionalData,
+      });
+
+      // Development: skip verification
+      if (process.env.NODE_ENV === 'development' || result.user.isVerified) {
+        navigateByRole(result.user.role);
+      } else {
+        setVerificationStep(true);
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.error || err.message || 'Something went wrong';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerification = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const result = await verifyEmail(formData.email, verificationCode);
+      navigateByRole(result.user?.role || formData.role);
+    } catch (err) {
+      const msg = err?.response?.data?.error || err.message || 'Verification failed';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Development bypass: auto verify + login
+  const handleDevBypass = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      // Call dev verify endpoint
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/auth/dev-verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email }),
+      });
+      const data = await res.json();
+
+      if (!data.success) throw new Error(data.error);
+
+      // Login after dev verify
+      const loginResult = await login({
+        email: formData.email,
+        password: formData.password,
+      });
+      navigateByRole(loginResult.user?.role || formData.role);
+    } catch (err) {
+      const msg = err?.message || 'Development verification failed';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- Render ---
+  if (verificationStep) {
+    return (
+      <div className="auth-page">
+        <div className="container">
+          <div className="auth-container">
+            <Card title="Verify Your Email" className="auth-card">
+              <p>Please check your email for the verification code.</p>
+              <div className="verification-help">
+                <p><strong>Development Note:</strong> In development, emails are not sent. Use server console code.</p>
+              </div>
+
+              <form onSubmit={handleVerification} className="auth-form">
+                <div className="form-group">
+                  <label htmlFor="verificationCode">Verification Code</label>
+                  <input
+                    type="text"
+                    id="verificationCode"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    className="form-control"
+                    required
+                    placeholder="Enter verification code from console"
+                  />
+                </div>
+
+                <div className="verification-actions">
+                  <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+                    {loading ? 'Verifying...' : 'Verify Email'}
+                  </button>
+                  <button type="button" className="btn btn-outline btn-full" onClick={handleDevBypass} disabled={loading}>
+                    {loading ? 'Processing...' : 'Development Bypass'}
+                  </button>
+                </div>
+              </form>
+
+              {error && <div className="alert alert-error">{error}</div>}
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="auth-page">
+      <div className="container">
+        <div className="auth-container">
+          <Card title="Create Your Account" className="auth-card">
+            {error && <div className="alert alert-error">{error}</div>}
+
+            <form onSubmit={handleSubmit} className="auth-form">
+              <div className="form-group">
+                <label htmlFor="name">Full Name</label>
+                <input type="text" id="name" name="name" value={formData.name} onChange={handleChange} className="form-control" required placeholder="Enter full name" />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="email">Email</label>
+                <input type="email" id="email" name="email" value={formData.email} onChange={handleChange} className="form-control" required placeholder="Enter email" />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="password">Password</label>
+                <input type="password" id="password" name="password" value={formData.password} onChange={handleChange} className="form-control" required minLength={6} placeholder="Enter password" />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="role">Account Type</label>
+                <select id="role" name="role" value={formData.role} onChange={handleChange} className="form-control" required>
+                  <option value="student">Student</option>
+                  <option value="institution">Institution</option>
+                  <option value="company">Company</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+
+              {/* Role-specific inputs */}
+              {formData.role === 'student' && (
+                <>
+                  <div className="form-group">
+                    <label htmlFor="phone">Phone</label>
+                    <input type="tel" id="phone" name="phone" value={formData.phone} onChange={handleChange} className="form-control" placeholder="Phone number" />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="address">Address</label>
+                    <textarea id="address" name="address" value={formData.address} onChange={handleChange} className="form-control" rows={3} placeholder="Address" />
+                  </div>
+                </>
+              )}
+
+              {formData.role === 'institution' && (
+                <div className="form-group">
+                  <label htmlFor="address">Location</label>
+                  <input type="text" id="address" name="address" value={formData.address} onChange={handleChange} className="form-control" placeholder="Institution location" />
+                </div>
+              )}
+
+              {formData.role === 'company' && (
+                <>
+                  <div className="form-group">
+                    <label htmlFor="phone">Industry</label>
+                    <input type="text" id="phone" name="phone" value={formData.phone} onChange={handleChange} className="form-control" placeholder="Industry" />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="address">Location</label>
+                    <input type="text" id="address" name="address" value={formData.address} onChange={handleChange} className="form-control" placeholder="Company location" />
+                  </div>
+                </>
+              )}
+
+              <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+                {loading ? 'Creating Account...' : 'Create Account'}
+              </button>
+            </form>
+
+            <div className="auth-links">
+              <p>Already have an account? <a href="/login">Login here</a></p>
             </div>
           </Card>
         </div>
